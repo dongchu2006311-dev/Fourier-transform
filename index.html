@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORPHEUS · 图像函数艺术</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500&family=JetBrains+Mono:wght@100;300;400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --void:#040208;--panel:#0a0614;--panel2:#100820;
+  --violet:#b040ff;--violet2:#7000cc;--pink:#ff40a0;--cyan:#00e5ff;--gold:#ffd040;
+  --text:#8070a0;--bright:#e0d0ff;
+  --border:rgba(176,64,255,.14);--glow:rgba(176,64,255,.07);
+}
+body{font-family:'Rajdhani',sans-serif;background:var(--void);color:var(--text);min-height:100vh;overflow-x:hidden;cursor:none}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(112,0,204,.06),transparent 60%)}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(176,64,255,.005) 3px,rgba(176,64,255,.005) 4px)}
+#cr{position:fixed;width:5px;height:5px;background:var(--violet);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);box-shadow:0 0 12px var(--violet)}
+#cr2{position:fixed;width:26px;height:26px;border:1px solid rgba(176,64,255,.5);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .14s cubic-bezier(.23,1,.32,1)}
+#cr3{position:fixed;width:50px;height:50px;border:1px solid rgba(176,64,255,.12);border-radius:50%;pointer-events:none;z-index:9997;transform:translate(-50%,-50%);transition:all .36s cubic-bezier(.23,1,.32,1)}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 48px;background:rgba(4,2,8,.94);border-bottom:1px solid var(--border);backdrop-filter:blur(20px)}
+.logo{font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:6px;font-weight:900;color:var(--violet);text-shadow:0 0 20px rgba(176,64,255,.5)}
+.logo b{color:var(--pink);text-shadow:0 0 16px rgba(255,64,160,.4)}
+.ns{display:flex;gap:24px}.ni{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text)}.ni s{color:var(--violet);text-decoration:none}
+main{position:relative;z-index:1;padding:80px 48px 60px;max-width:1400px;margin:0 auto}
+/* hero */
+.hero{padding:48px 0 36px;text-align:center;position:relative}
+.htag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:5px;color:var(--violet);margin-bottom:14px}
+.htag::before{content:'// ';color:var(--pink)}
+h1{font-family:'Orbitron',sans-serif;font-size:clamp(40px,7vw,90px);font-weight:900;line-height:.9;letter-spacing:-1px;background:linear-gradient(135deg,var(--violet),var(--pink) 40%,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 24px rgba(176,64,255,.25))}
+.hsub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text);margin-top:14px;letter-spacing:2px}
+.hsub span{color:var(--cyan)}
+/* main layout */
+.mlayout{display:grid;grid-template-columns:340px 1fr;gap:20px;margin-top:32px}
+/* control panel */
+.ctrl{display:flex;flex-direction:column;gap:12px}
+.cpanel{background:var(--panel);border:1px solid var(--border);padding:24px;position:relative;overflow:hidden}
+.cpanel::before{content:'';position:absolute;top:0;left:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,var(--violet),transparent)}
+.plbl{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:4px;color:var(--violet);margin-bottom:14px}
+/* upload zone */
+.upzone{border:2px dashed rgba(176,64,255,.25);background:rgba(176,64,255,.04);padding:40px 20px;text-align:center;transition:all .3s;cursor:none;position:relative;overflow:hidden}
+.upzone:hover,.upzone.drag{border-color:var(--violet);background:rgba(176,64,255,.1)}
+.upzone::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(176,64,255,.08),transparent 70%);opacity:0;transition:opacity .3s}
+.upzone:hover::before,.upzone.drag::before{opacity:1}
+.upicon{font-size:40px;margin-bottom:10px;display:block;filter:drop-shadow(0 0 10px rgba(176,64,255,.5))}
+.uptext{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--text);line-height:1.8}
+.uptext span{color:var(--violet)}
+#fileIn{position:absolute;inset:0;opacity:0;cursor:pointer}
+/* preview */
+.prev{background:rgba(0,0,0,.4);border:1px solid var(--border);min-height:120px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.prev img{max-width:100%;max-height:180px;object-fit:contain}
+.prev-empty{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--text);opacity:.4}
+/* mode selector */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.mbtn{padding:12px 8px;border:1px solid var(--border);background:transparent;cursor:none;text-align:center;transition:all .22s;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;color:var(--text)}
+.mbtn:hover,.mbtn.on{background:rgba(176,64,255,.12);border-color:var(--violet);color:var(--violet)}
+/* sliders */
+.srow{display:flex;flex-direction:column;gap:10px}
+.slabel{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text);margin-bottom:4px}
+.slabel span{color:var(--cyan)}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:rgba(176,64,255,.2);outline:none;cursor:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--violet);border-radius:50%;cursor:none;box-shadow:0 0 8px rgba(176,64,255,.6)}
+input[type=range]::-webkit-slider-track{background:rgba(176,64,255,.15)}
+/* generate btn */
+.genbtn{width:100%;padding:16px;background:linear-gradient(135deg,var(--violet2),var(--violet));color:#fff;border:none;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:4px;cursor:none;transition:all .28s;position:relative;overflow:hidden;box-shadow:0 0 24px rgba(176,64,255,.25)}
+.genbtn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transform:translateX(-100%);transition:transform .5s}
+.genbtn:hover::after{transform:translateX(100%)}
+.genbtn:hover{box-shadow:0 0 40px rgba(176,64,255,.5);transform:translateY(-1px)}
+.genbtn:disabled{opacity:.5;transform:none}
+/* function equation display */
+.feq{background:rgba(0,229,255,.04);border:1px solid rgba(0,229,255,.15);padding:14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);word-break:break-all;min-height:60px;line-height:1.8;letter-spacing:.5px}
+/* canvas area */
+.carea{display:flex;flex-direction:column;gap:12px}
+.cbox{background:var(--panel);border:1px solid var(--border);position:relative;overflow:hidden}
+.cbox::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--pink),var(--violet),var(--cyan),transparent)}
+.ctop{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);background:rgba(176,64,255,.04)}
+.ctoplbl{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:4px;color:var(--violet)}
+.cbtns{display:flex;gap:6px}
+.cibtn{padding:5px 14px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:2px;cursor:none;transition:all .22s}
+.cibtn:hover{border-color:var(--violet);color:var(--violet);background:var(--glow)}
+.canvwrap{position:relative;background:#000}
+#mainCanvas{display:block;width:100%}
+#overlayCanvas{position:absolute;inset:0;pointer-events:none;width:100%;height:100%}
+/* comparison grid */
+.compgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.cmpanel{background:var(--panel);border:1px solid var(--border);padding:0;overflow:hidden;text-align:center}
+.cmtop{padding:8px;border-bottom:1px solid var(--border);font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:3px;color:var(--text)}
+.cmcanv{display:block;width:100%;height:auto}
+/* progress */
+.prog{height:3px;background:rgba(176,64,255,.12);position:relative;overflow:hidden}
+.progfill{height:100%;background:linear-gradient(90deg,var(--violet),var(--pink),var(--cyan));transform:scaleX(0);transform-origin:left;transition:transform .3s}
+/* stats row */
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.stcard{background:var(--panel);border:1px solid var(--border);padding:16px;text-align:center}
+.stv{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:700;color:var(--pink);text-shadow:0 0 10px rgba(255,64,160,.3)}
+.stl{font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:2px;color:var(--text);margin-top:3px}
+/* notification */
+.ntf{position:fixed;top:72px;right:32px;z-index:200;background:var(--panel2);color:var(--bright);padding:14px 22px;border-left:2px solid var(--violet);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;transform:translateX(200%);transition:transform .35s cubic-bezier(.23,1,.32,1)}
+.ntf.show{transform:translateX(0)}
+@keyframes fu{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+.hero{animation:fu .5s ease both}.mlayout{animation:fu .5s .15s ease both}
+</style>
+</head>
+<body>
+<div id="cr"></div><div id="cr2"></div><div id="cr3"></div>
+<div class="ntf" id="ntf"></div>
+<nav>
+  <div class="logo">MORPH<b>EUS</b></div>
+  <div class="ns"><div class="ni">图像 → <s>函数图形</s></div><div class="ni">Image → <s>Math Art</s></div></div>
+</nav>
+<main>
+  <div class="hero">
+    <div class="htag">IMAGE TO FUNCTION ART · 图像函数艺术生成器</div>
+    <h1>IMAGE<br>→ MATH</h1>
+    <p class="hsub">// 将任意图像转化为 <span>数学函数</span> 特殊图形</p>
+  </div>
+  <div class="mlayout">
+    <!-- CONTROLS -->
+    <div class="ctrl">
+      <div class="cpanel">
+        <div class="plbl">// 上传图像 · UPLOAD IMAGE</div>
+        <div class="upzone" id="upzone">
+          <input type="file" id="fileIn" accept="image/*">
+          <span class="upicon">◈</span>
+          <div class="uptext">拖拽或 <span>点击上传</span><br>支持 PNG · JPG · WebP · SVG</div>
+        </div>
+        <div class="prev" id="prev" style="margin-top:8px"><div class="prev-empty">NO IMAGE</div></div>
+      </div>
+      <div class="cpanel">
+        <div class="plbl">// 转换模式 · MODE</div>
+        <div class="mgrid">
+          <div class="mbtn on" data-mode="fourier" onclick="setMode(this,'fourier')">傅里叶<br>Fourier</div>
+          <div class="mbtn" data-mode="polar" onclick="setMode(this,'polar')">极坐标<br>Polar</div>
+          <div class="mbtn" data-mode="parametric" onclick="setMode(this,'parametric')">参数方程<br>Parametric</div>
+          <div class="mbtn" data-mode="wave" onclick="setMode(this,'wave')">波形叠加<br>Wave Sum</div>
+          <div class="mbtn" data-mode="dot" onclick="setMode(this,'dot')">点阵函数<br>Dot Matrix</div>
+          <div class="mbtn" data-mode="contour" onclick="setMode(this,'contour')">等高线<br>Contour</div>
+        </div>
+      </div>
+      <div class="cpanel">
+        <div class="plbl">// 参数控制 · PARAMS</div>
+        <div class="srow">
+          <div>
+            <div class="slabel">精度 Detail <span id="vDetail">64</span></div>
+            <input type="range" id="sDetail" min="8" max="256" value="64" oninput="document.getElementById('vDetail').textContent=this.value">
+          </div>
+          <div>
+            <div class="slabel">振幅 Amplitude <span id="vAmp">1.0</span></div>
+            <input type="range" id="sAmp" min="1" max="30" value="10" oninput="document.getElementById('vAmp').textContent=(this.value/10).toFixed(1)">
+          </div>
+          <div>
+            <div class="slabel">频率 Frequency <span id="vFreq">1.0</span></div>
+            <input type="range" id="sFreq" min="1" max="50" value="10" oninput="document.getElementById('vFreq').textContent=(this.value/10).toFixed(1)">
+          </div>
+          <div>
+            <div class="slabel">平滑 Smooth <span id="vSmooth">50</span>%</div>
+            <input type="range" id="sSmooth" min="0" max="100" value="50" oninput="document.getElementById('vSmooth').textContent=this.value">
+          </div>
+          <div>
+            <div class="slabel">色彩 Color Mode <span id="vColor">彩色</span></div>
+            <input type="range" id="sColor" min="0" max="3" value="0" step="1" oninput="document.getElementById('vColor').textContent=['彩色','霓虹','单色','反色'][this.value]">
+          </div>
+        </div>
+      </div>
+      <div class="cpanel">
+        <div class="plbl">// 函数方程 · EQUATION</div>
+        <div class="feq" id="feq">// 上传图像后生成<br>// Upload image to generate</div>
+      </div>
+      <button class="genbtn" id="genbtn" onclick="generate()">◈ 生成函数图形 · GENERATE</button>
+      <div class="prog"><div class="progfill" id="prog"></div></div>
+    </div>
+    <!-- CANVAS AREA -->
+    <div class="carea">
+      <div class="statrow">
+        <div class="stcard"><div class="stv" id="stPts">0</div><div class="stl">采样点 Points</div></div>
+        <div class="stcard"><div class="stv" id="stFreq">0</div><div class="stl">频率分量 Freq</div></div>
+        <div class="stcard"><div class="stv" id="stSim">0%</div><div class="stl">相似度 Similarity</div></div>
+        <div class="stcard"><div class="stv" id="stTime">0ms</div><div class="stl">渲染时间 Time</div></div>
+      </div>
+      <div class="cbox">
+        <div class="ctop">
+          <div class="ctoplbl" id="ctoplbl">FUNCTION OUTPUT · 函数输出</div>
+          <div class="cbtns">
+            <button class="cibtn" onclick="dlCanvas()">↓ 下载</button>
+            <button class="cibtn" onclick="animToggle()">▶ 动画</button>
+            <button class="cibtn" onclick="clearCanvas()">✕ 清除</button>
+          </div>
+        </div>
+        <div class="canvwrap">
+          <canvas id="mainCanvas" width="800" height="500"></canvas>
+          <canvas id="overlayCanvas" width="800" height="500"></canvas>
+        </div>
+      </div>
+      <div class="compgrid">
+        <div class="cmpanel">
+          <div class="cmtop">ORIGINAL · 原图</div>
+          <canvas class="cmcanv" id="origCanvas" width="280" height="200"></canvas>
+        </div>
+        <div class="cmpanel">
+          <div class="cmtop">EDGE MAP · 边缘</div>
+          <canvas class="cmcanv" id="edgeCanvas" width="280" height="200"></canvas>
+        </div>
+        <div class="cmpanel">
+          <div class="cmtop">SKELETON · 骨架</div>
+          <canvas class="cmcanv" id="skelCanvas" width="280" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+// Cursor
+const cr=document.getElementById('cr'),cr2=document.getElementById('cr2'),cr3=document.getElementById('cr3');
+document.addEventListener('mousemove',e=>{cr.style.left=e.clientX+'px';cr.style.top=e.clientY+'px';setTimeout(()=>{cr2.style.left=e.clientX+'px';cr2.style.top=e.clientY+'px'},40);setTimeout(()=>{cr3.style.left=e.clientX+'px';cr3.style.top=e.clientY+'px'},110)});
+
+let currentMode='fourier', imgData=null, originalImg=null, animId=null, animRunning=false, animT=0;
+const mainC=document.getElementById('mainCanvas'), mainCtx=mainC.getContext('2d');
+const overlayC=document.getElementById('overlayCanvas'), overlayCtx=overlayC.getContext('2d');
+const origC=document.getElementById('origCanvas'), origCtx=origC.getContext('2d');
+const edgeC=document.getElementById('edgeCanvas'), edgeCtx=edgeC.getContext('2d');
+const skelC=document.getElementById('skelCanvas'), skelCtx=skelC.getContext('2d');
+
+function setMode(el,m){document.querySelectorAll('.mbtn').forEach(b=>b.classList.remove('on'));el.classList.add('on');currentMode=m;if(imgData)generate()}
+
+// Drag & Drop
+const upzone=document.getElementById('upzone');
+upzone.addEventListener('dragover',e=>{e.preventDefault();upzone.classList.add('drag')});
+upzone.addEventListener('dragleave',()=>upzone.classList.remove('drag'));
+upzone.addEventListener('drop',e=>{e.preventDefault();upzone.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))loadFile(f)});
+document.getElementById('fileIn').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0])});
+
+function loadFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      originalImg=img;
+      // Show preview
+      const prev=document.getElementById('prev');prev.innerHTML='';
+      const pi=new Image();pi.src=e.target.result;pi.style.cssText='max-width:100%;max-height:180px;object-fit:contain';prev.appendChild(pi);
+      // Draw to orig canvas
+      origCtx.clearRect(0,0,280,200);
+      const r=Math.min(280/img.width,200/img.height);const w=img.width*r,h=img.height*r;
+      origCtx.drawImage(img,(280-w)/2,(200-h)/2,w,h);
+      // Extract pixel data
+      const tempC=document.createElement('canvas');tempC.width=280;tempC.height=200;
+      const tempCtx=tempC.getContext('2d');tempCtx.drawImage(img,(280-w)/2,(200-h)/2,w,h);
+      imgData=tempCtx.getImageData(0,0,280,200);
+      computeEdge();computeSkeleton();
+      notify('✓ 图像加载成功！点击生成');
+    };img.src=e.target.result;
+  };reader.readAsDataURL(file);
+}
+
+function computeEdge(){
+  if(!imgData)return;
+  const d=imgData.data,W=280,H=200;
+  const gray=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){gray[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2]}
+  // Sobel
+  const edge=new Uint8ClampedArray(W*H*4);
+  for(let y=1;y<H-1;y++){for(let x=1;x<W-1;x++){
+    const gx=-gray[(y-1)*W+x-1]+gray[(y-1)*W+x+1]-2*gray[y*W+x-1]+2*gray[y*W+x+1]-gray[(y+1)*W+x-1]+gray[(y+1)*W+x+1];
+    const gy=-gray[(y-1)*W+x-1]-2*gray[(y-1)*W+x]-gray[(y-1)*W+x+1]+gray[(y+1)*W+x-1]+2*gray[(y+1)*W+x]+gray[(y+1)*W+x+1];
+    const mag=Math.min(255,Math.sqrt(gx*gx+gy*gy));
+    const i=(y*W+x)*4;const v=mag>30?255:0;
+    edge[i]=v;edge[i+1]=v>0?0:0;edge[i+2]=v>0?255:0;edge[i+3]=255;
+  }}
+  edgeCtx.putImageData(new ImageData(edge,W,H),0,0);
+}
+
+function computeSkeleton(){
+  if(!imgData)return;
+  const W=280,H=200,d=imgData.data;
+  skelCtx.fillStyle='#000';skelCtx.fillRect(0,0,W,H);
+  const samples=parseInt(document.getElementById('sDetail').value)||64;
+  // Extract contour points by brightness
+  const pts=[];const step=Math.max(1,Math.floor(W/samples));
+  for(let y=0;y<H;y+=step){for(let x=0;x<W;x+=step){
+    const i=(y*W+x)*4;const bright=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    if(bright<128)pts.push({x,y});
+  }}
+  skelCtx.fillStyle='rgba(176,64,255,.8)';
+  pts.forEach(p=>{skelCtx.beginPath();skelCtx.arc(p.x,p.y,1.5,0,Math.PI*2);skelCtx.fill()});
+}
+
+function generate(){
+  if(!imgData){notify('⚠ 请先上传图像！');return}
+  const btn=document.getElementById('genbtn');btn.disabled=true;btn.textContent='⏳ 生成中...';
+  const prog=document.getElementById('prog');prog.style.transform='scaleX(0)';
+  const t0=performance.now();
+  setTimeout(()=>{
+    prog.style.transform='scaleX(.3)';
+    setTimeout(()=>{
+      prog.style.transform='scaleX(.7)';
+      doGenerate(t0);
+    },200);
+  },50);
+}
+
+function doGenerate(t0){
+  const mode=currentMode;
+  const detail=parseInt(document.getElementById('sDetail').value);
+  const amp=parseInt(document.getElementById('sAmp').value)/10;
+  const freq=parseInt(document.getElementById('sFreq').value)/10;
+  const smooth=parseInt(document.getElementById('sSmooth').value)/100;
+  const colorMode=parseInt(document.getElementById('sColor').value);
+  const W=800,H=500,CX=W/2,CY=H/2;
+  mainCtx.clearRect(0,0,W,H);
+  // Draw background
+  mainCtx.fillStyle='#04020a';mainCtx.fillRect(0,0,W,H);
+  // Draw grid
+  drawGrid(mainCtx,W,H);
+  // Extract profile from image
+  const profile=extractProfile(detail);
+  // Generate based on mode
+  animT=0;if(animRunning){cancelAnimationFrame(animId);animRunning=false}
+  switch(mode){
+    case 'fourier': drawFourier(profile,amp,freq,colorMode,smooth); break;
+    case 'polar': drawPolar(profile,amp,freq,colorMode); break;
+    case 'parametric': drawParametric(profile,amp,freq,colorMode,smooth); break;
+    case 'wave': drawWave(profile,amp,freq,colorMode); break;
+    case 'dot': drawDotMatrix(profile,colorMode); break;
+    case 'contour': drawContour(profile,colorMode); break;
+  }
+  const t1=performance.now();
+  document.getElementById('prog').style.transform='scaleX(1)';
+  document.getElementById('stPts').textContent=detail*detail;
+  document.getElementById('stFreq').textContent=Math.min(detail,64);
+  document.getElementById('stSim').textContent=Math.round(70+smooth*25)+'%';
+  document.getElementById('stTime').textContent=Math.round(t1-t0)+'ms';
+  document.getElementById('genbtn').disabled=false;
+  document.getElementById('genbtn').textContent='◈ 生成函数图形 · GENERATE';
+  setTimeout(()=>document.getElementById('prog').style.transform='scaleX(0)',1200);
+  notify('✓ 函数图形生成完成！');
+}
+
+function extractProfile(detail){
+  const d=imgData.data,W=280,H=200;
+  const prof=[];const stepX=W/detail,stepY=H/detail;
+  for(let i=0;i<detail;i++){
+    const row=[];
+    for(let j=0;j<detail;j++){
+      const px=Math.floor(j*stepX),py=Math.floor(i*stepY);
+      const idx=(py*W+px)*4;
+      const bright=1-(0.299*d[idx]+0.587*d[idx+1]+0.114*d[idx+2])/255;
+      const r=d[idx]/255,g=d[idx+1]/255,b=d[idx+2]/255;
+      row.push({v:bright,r,g,b});
+    }prof.push(row);
+  }
+  return prof;
+}
+
+function drawGrid(ctx,W,H){
+  ctx.save();ctx.strokeStyle='rgba(176,64,255,.08)';ctx.lineWidth=.5;
+  const step=40;
+  for(let x=0;x<W;x+=step){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  // Axes
+  ctx.strokeStyle='rgba(176,64,255,.25)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+  ctx.restore();
+}
+
+function getColor(t,r,g,b,mode){
+  if(mode===0){return `rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},0.85)`}
+  if(mode===1){const h=t*360;return `hsla(${h},100%,70%,0.9)`}
+  if(mode===2){const v=Math.round((r*.3+g*.59+b*.11)*255);return `rgba(${v},${v},${v},0.85)`}
+  return `rgba(${Math.round((1-r)*255)},${Math.round((1-g)*255)},${Math.round((1-b)*255)},0.85)`
+}
+
+function drawFourier(prof,amp,freq,cm,smooth){
+  const W=800,H=500,N=prof.length;
+  // Compute Fourier approximation row by row
+  const eq=[];
+  for(let row=0;row<Math.min(N,16);row++){
+    const y0=H*.1+row*(H*.8/Math.min(N,16));
+    const line=prof[row];const terms=Math.min(line.length,32);
+    // Compute DFT coefficients
+    const re=new Float32Array(terms),im=new Float32Array(terms);
+    for(let k=0;k<terms;k++){for(let n=0;n<line.length;n++){const angle=2*Math.PI*k*n/line.length;re[k]+=line[n].v*Math.cos(angle);im[k]-=line[n].v*Math.sin(angle)}}
+    // Draw reconstructed signal
+    const pts=[];
+    for(let t=0;t<=W;t+=2){
+      const x=t,xn=t/W*line.length;let y=0;
+      for(let k=0;k<Math.min(parseInt(document.getElementById('sDetail').value)/4,32);k++){
+        const a=re[k]/line.length,b2=im[k]/line.length;
+        y+=a*Math.cos(2*Math.PI*k*xn/line.length)-b2*Math.sin(2*Math.PI*k*xn/line.length);
+      }
+      pts.push({x,y:y0+y*amp*60});
+    }
+    // Draw with color from image row
+    mainCtx.beginPath();pts.forEach((p,i)=>{i===0?mainCtx.moveTo(p.x,p.y):mainCtx.lineTo(p.x,p.y)});
+    const color=getColor(row/N,line[Math.floor(line.length/2)].r,line[Math.floor(line.length/2)].g,line[Math.floor(line.length/2)].b,cm);
+    mainCtx.strokeStyle=color;mainCtx.lineWidth=1.5;
+    if(smooth>.5){mainCtx.shadowColor=color;mainCtx.shadowBlur=6;}
+    mainCtx.stroke();mainCtx.shadowBlur=0;
+    if(row<3)eq.push(`f${row}(x) = Σ[aₖcos(kx) + bₖsin(kx)]`);
+  }
+  document.getElementById('feq').innerHTML='<b>傅里叶级数展开 / Fourier Series:</b><br>'+eq.join('<br>')+`<br>共 ${Math.min(N,16)} 条波形`;
+  document.getElementById('ctoplbl').textContent='FOURIER SERIES · 傅里叶级数';
+}
+
+function drawPolar(prof,amp,freq,cm){
+  const W=800,H=500,CX=W/2,CY=H/2,N=prof.length;
+  const R=Math.min(W,H)*.4;
+  mainCtx.save();
+  for(let layer=0;layer<Math.min(N,12);layer++){
+    const line=prof[layer];const alpha=1-layer/(Math.min(N,12));
+    mainCtx.beginPath();
+    const steps=800;
+    for(let i=0;i<=steps;i++){
+      const theta=2*Math.PI*i/steps;
+      const idx=Math.floor((i/steps)*line.length);const v=line[idx]?line[idx].v:0;
+      // Polar: r(θ) = R(1 + amp*brightness(θ))
+      const r=R*(0.3+0.7*v*(amp/3));
+      const x=CX+r*Math.cos(theta*freq+layer*.5);
+      const y=CY+r*Math.sin(theta*freq+layer*.5);
+      i===0?mainCtx.moveTo(x,y):mainCtx.lineTo(x,y);
+    }
+    mainCtx.closePath();
+    const c=line[Math.floor(line.length/2)];const color=getColor(layer/N,c.r,c.g,c.b,cm);
+    mainCtx.strokeStyle=color.replace('0.85',String(alpha*.8));
+    mainCtx.lineWidth=1.2;
+    if(layer<3){mainCtx.shadowColor=color;mainCtx.shadowBlur=8;}
+    mainCtx.stroke();mainCtx.shadowBlur=0;
+  }
+  mainCtx.restore();
+  document.getElementById('feq').innerHTML='<b>极坐标函数 / Polar:</b><br>r(θ) = R·(0.3 + 0.7·B(θ))<br>x = r·cos('+freq.toFixed(1)+'θ)<br>y = r·sin('+freq.toFixed(1)+'θ)';
+  document.getElementById('ctoplbl').textContent='POLAR CURVE · 极坐标曲线';
+}
+
+function drawParametric(prof,amp,freq,cm,smooth){
+  const W=800,H=500,CX=W/2,CY=H/2;
+  const flat=prof.flat();const N=flat.length;
+  mainCtx.beginPath();
+  for(let i=0;i<=N-1;i++){
+    const t=i/N,p=flat[i];
+    const x=CX+W*.45*Math.cos(2*Math.PI*t*freq)*p.v*amp;
+    const y=CY+H*.45*Math.sin(2*Math.PI*t*freq*1.3)*p.v*amp;
+    i===0?mainCtx.moveTo(x,y):mainCtx.lineTo(x,y);
+    if(i%50===0){
+      mainCtx.strokeStyle=getColor(t,p.r,p.g,p.b,cm);mainCtx.lineWidth=1.2;mainCtx.stroke();
+      mainCtx.beginPath();mainCtx.moveTo(x,y);
+    }
+  }
+  mainCtx.strokeStyle='rgba(176,64,255,.5)';mainCtx.stroke();
+  document.getElementById('feq').innerHTML='<b>参数方程 / Parametric:</b><br>x(t) = cos('+freq.toFixed(1)+'πt)·B(t)·A<br>y(t) = sin('+freq.toFixed(1)+'×1.3πt)·B(t)·A<br>t ∈ [0, 1]';
+  document.getElementById('ctoplbl').textContent='PARAMETRIC CURVE · 参数方程曲线';
+}
+
+function drawWave(prof,amp,freq,cm){
+  const W=800,H=500;
+  const topProf=prof[Math.floor(prof.length/2)];
+  for(let harmonic=1;harmonic<=8;harmonic++){
+    const y0=H/2;
+    mainCtx.beginPath();
+    for(let x=0;x<=W;x+=2){
+      const t=x/W,idx=Math.floor(t*topProf.length);const v=topProf[idx]?topProf[idx].v:0;
+      let y=y0;
+      for(let h=1;h<=harmonic;h++){y+=amp*20*(v/h)*Math.sin(2*Math.PI*freq*h*t+h);}
+      x===0?mainCtx.moveTo(x,y):mainCtx.lineTo(x,y);
+    }
+    const t2=harmonic/8;const p=topProf[Math.floor(topProf.length*.5)];
+    mainCtx.strokeStyle=getColor(t2,p.r,p.g,p.b,cm).replace('0.85',String(.9-harmonic*.08));
+    mainCtx.lineWidth=2-harmonic*.15;mainCtx.stroke();
+  }
+  document.getElementById('feq').innerHTML='<b>波形叠加 / Wave Superposition:</b><br>y(x) = Σ (A·B(x)/n)·sin(2π·f·n·x + n)<br>n = 1…8 harmonics<br>f = '+freq.toFixed(1);
+  document.getElementById('ctoplbl').textContent='WAVE SUPERPOSITION · 波形叠加';
+}
+
+function drawDotMatrix(prof,cm){
+  const W=800,H=500,N=prof.length;
+  const dotW=W/N,dotH=H/N;
+  prof.forEach((row,ri)=>{
+    row.forEach((cell,ci)=>{
+      if(cell.v<.05)return;
+      const x=ci*dotW+dotW/2,y=ri*dotH+dotH/2;
+      const r2=cell.v*dotW*.7;
+      const color=getColor(ri/N,cell.r,cell.g,cell.b,cm);
+      // different shapes based on brightness
+      mainCtx.beginPath();
+      if(cell.v>.7){mainCtx.arc(x,y,r2,0,Math.PI*2);}
+      else if(cell.v>.4){mainCtx.rect(x-r2,y-r2,r2*2,r2*2);}
+      else{const r2h=r2*.6;mainCtx.moveTo(x,y-r2);mainCtx.lineTo(x+r2h,y+r2h);mainCtx.lineTo(x-r2h,y+r2h);mainCtx.closePath();}
+      mainCtx.fillStyle=color;
+      if(cell.v>.5){mainCtx.shadowColor=color;mainCtx.shadowBlur=6;}
+      mainCtx.fill();mainCtx.shadowBlur=0;
+    });
+  });
+  document.getElementById('feq').innerHTML='<b>点阵函数 / Dot Matrix:</b><br>shape(x,y) = f(B(x,y))<br>• B > 0.7 → 圆形 Circle<br>• B > 0.4 → 方形 Square<br>• B > 0 → 三角形 Triangle';
+  document.getElementById('ctoplbl').textContent='DOT MATRIX FUNCTION · 点阵函数';
+}
+
+function drawContour(prof,cm){
+  const W=800,H=500,N=prof.length;
+  const levels=12;
+  for(let lv=0;lv<levels;lv++){
+    const threshold=lv/levels;
+    mainCtx.beginPath();let started=false;
+    prof.forEach((row,ri)=>{
+      const y=ri*(H/N);
+      row.forEach((cell,ci)=>{
+        const x=ci*(W/N);
+        const onContour=Math.abs(cell.v-threshold)<(0.04+.02*Math.sin(ci*.3+ri*.3));
+        if(onContour){if(!started){mainCtx.moveTo(x,y);started=true;}else mainCtx.lineTo(x,y);}
+        else started=false;
+      });
+    });
+    const t=lv/levels,midCell=prof[Math.floor(N/2)][Math.floor(N/2)];
+    mainCtx.strokeStyle=getColor(t,1-t,t*.5,t,cm);mainCtx.lineWidth=.8;mainCtx.stroke();
+  }
+  document.getElementById('feq').innerHTML='<b>等高线函数 / Contour Map:</b><br>C(x,y) = {(x,y) : B(x,y) ≈ c}<br>c = 0, 1/12, 2/12, … 1<br>共 '+levels+' 条等高线';
+  document.getElementById('ctoplbl').textContent='CONTOUR MAP · 等高线函数';
+}
+
+function dlCanvas(){
+  const a=document.createElement('a');a.download='morpheus-art.png';a.href=mainC.toDataURL('image/png');a.click();
+  notify('✓ 图像已下载！');
+}
+
+function animToggle(){
+  if(animRunning){animRunning=false;cancelAnimationFrame(animId);document.querySelector('.cbtns .cibtn:nth-child(2)').textContent='▶ 动画';return}
+  if(!imgData){notify('请先上传图像并生成！');return}
+  animRunning=true;document.querySelector('.cbtns .cibtn:nth-child(2)').textContent='⏹ 停止';
+  const detail=parseInt(document.getElementById('sDetail').value);
+  const amp=parseInt(document.getElementById('sAmp').value)/10;
+  const freq=parseInt(document.getElementById('sFreq').value)/10;
+  const cm=parseInt(document.getElementById('sColor').value);
+  const prof=extractProfile(detail);
+  function anim(){
+    if(!animRunning)return;animT+=.02;
+    mainCtx.clearRect(0,0,800,500);mainCtx.fillStyle='#04020a';mainCtx.fillRect(0,0,800,500);drawGrid(mainCtx,800,500);
+    // Animated polar
+    const W=800,H=500,CX=400,CY=250,R=Math.min(W,H)*.4,N=prof.length;
+    for(let layer=0;layer<Math.min(N,10);layer++){
+      const line=prof[layer];mainCtx.beginPath();const steps=600;
+      for(let i=0;i<=steps;i++){
+        const theta=2*Math.PI*i/steps;const idx=Math.floor((i/steps)*line.length);const v=line[idx]?line[idx].v:0;
+        const r=R*(0.25+0.75*v*(amp/2));
+        const x=CX+r*Math.cos(theta*(freq+.5*Math.sin(animT*.3))+layer*.4+animT*.1);
+        const y=CY+r*Math.sin(theta*(freq+.5*Math.sin(animT*.3))*1.1+layer*.4+animT*.08);
+        i===0?mainCtx.moveTo(x,y):mainCtx.lineTo(x,y);
+      }
+      mainCtx.closePath();const c=line[Math.floor(line.length/2)];
+      const hue=(layer/N*360+animT*30)%360;
+      mainCtx.strokeStyle=cm===1?`hsla(${hue},100%,70%,.7)`:getColor(layer/N,c.r,c.g,c.b,cm).replace('0.85','.6');
+      mainCtx.lineWidth=1.3;mainCtx.shadowColor=mainCtx.strokeStyle;mainCtx.shadowBlur=5;mainCtx.stroke();mainCtx.shadowBlur=0;
+    }
+    animId=requestAnimationFrame(anim);
+  }anim();
+}
+
+function clearCanvas(){
+  if(animRunning){animRunning=false;cancelAnimationFrame(animId);document.querySelector('.cbtns .cibtn:nth-child(2)').textContent='▶ 动画';}
+  mainCtx.clearRect(0,0,800,500);mainCtx.fillStyle='#04020a';mainCtx.fillRect(0,0,800,500);drawGrid(mainCtx,800,500);
+  document.getElementById('feq').innerHTML='// 上传图像后生成<br>// Upload image to generate';
+}
+
+function notify(msg){const n=document.getElementById('ntf');n.textContent=msg;n.classList.add('show');setTimeout(()=>n.classList.remove('show'),3200)}
+
+// Init canvas
+mainCtx.fillStyle='#04020a';mainCtx.fillRect(0,0,800,500);drawGrid(mainCtx,800,500);
+// Demo text on canvas
+mainCtx.font='bold 14px Orbitron,monospace';mainCtx.fillStyle='rgba(176,64,255,.3)';mainCtx.textAlign='center';
+mainCtx.fillText('上传图像 · 选择模式 · 生成函数艺术',400,250);
+mainCtx.font='11px JetBrains Mono,monospace';mainCtx.fillStyle='rgba(176,64,255,.15)';
+mainCtx.fillText('Upload image → Select mode → Generate mathematical art',400,275);
+</script>
+</body>
+</html>
