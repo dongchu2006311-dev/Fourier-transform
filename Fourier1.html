@@ -1,1 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FOURIER · 图像傅里叶变换</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@100;300;400;500&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#03010a;
+  --panel:#080516;
+  --panel2:#0e0a20;
+  --p1:#a020f0;--p2:#d060ff;--p3:#f0b0ff;
+  --rose:#ff2060;--cyan:#00e8ff;--gold:#ffd020;--green:#20ff90;
+  --dim:#5040708;--text:#8870b8;--bright:#e8d8ff;
+  --b1:rgba(160,32,240,.15);--b2:rgba(160,32,240,.08);
+}
+html{font-size:16px}
+body{
+  font-family:'Rajdhani',sans-serif;
+  background:var(--bg);color:var(--bright);
+  min-height:100vh;overflow-x:hidden;cursor:none;
+}
+/* deep space bg */
+#starCanvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+/* scanlines */
+body::after{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(160,32,240,.006) 3px,rgba(160,32,240,.006) 4px)}
 
+/* CURSOR — crosshair */
+#CR{position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%)}
+#CR::before{content:'';position:absolute;width:1px;height:22px;background:var(--p2);top:-11px;left:0;box-shadow:0 0 6px var(--p2)}
+#CR::after{content:'';position:absolute;width:22px;height:1px;background:var(--p2);top:0;left:-11px;box-shadow:0 0 6px var(--p2)}
+#CRring{position:fixed;width:36px;height:36px;border:1px solid rgba(160,32,240,.5);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .18s cubic-bezier(.23,1,.32,1)}
+#CRdot{position:fixed;width:4px;height:4px;background:var(--p2);border-radius:50%;pointer-events:none;z-index:10000;transform:translate(-50%,-50%);box-shadow:0 0 8px var(--p2)}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:58px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 56px;
+  background:rgba(3,1,10,.95);
+  border-bottom:1px solid var(--b1);
+  backdrop-filter:blur(24px);
+}
+.logo{font-family:'Orbitron',sans-serif;font-size:16px;letter-spacing:6px;font-weight:900;
+  background:linear-gradient(90deg,var(--p2),var(--rose),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 12px rgba(160,32,240,.4));
+}
+.nav-meta{display:flex;gap:28px;align-items:center}
+.nm{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text)}
+.nm b{color:var(--cyan)}
+.ld{display:inline-block;width:5px;height:5px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);animation:bl 1.4s ease infinite;vertical-align:middle;margin-right:5px}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* LAYOUT */
+.page{position:relative;z-index:2;display:grid;grid-template-columns:340px 1fr;min-height:100vh;padding-top:58px}
+
+/* ── LEFT PANEL ── */
+.left-panel{
+  border-right:1px solid var(--b1);
+  background:rgba(8,5,22,.95);
+  display:flex;flex-direction:column;gap:0;
+  overflow-y:auto;
+  max-height:calc(100vh - 58px);
+  position:sticky;top:58px;
+}
+.left-panel::-webkit-scrollbar{width:3px}
+.left-panel::-webkit-scrollbar-thumb{background:var(--b1)}
+
+.section{border-bottom:1px solid var(--b1);padding:20px}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:4px;color:var(--p2);margin-bottom:14px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--b1)}
+
+/* UPLOAD */
+.upload-zone{
+  border:1px dashed rgba(160,32,240,.35);
+  padding:32px 16px;text-align:center;
+  transition:all .3s;cursor:none;
+  position:relative;overflow:hidden;
+  background:rgba(160,32,240,.03);
+}
+.upload-zone:hover,.upload-zone.drag{
+  border-color:var(--p1);background:rgba(160,32,240,.08);
+  box-shadow:inset 0 0 32px rgba(160,32,240,.06);
+}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:2}
+.up-glyph{font-family:'Orbitron',sans-serif;font-size:36px;color:var(--p2);display:block;margin-bottom:10px;
+  text-shadow:0 0 20px rgba(160,32,240,.6);animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.up-txt{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--text);line-height:2}
+.up-txt span{color:var(--p2)}
+
+/* PREVIEW TRIO */
+.preview-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:8px}
+.pv-item{background:#000;border:1px solid var(--b1);overflow:hidden;position:relative}
+.pv-tag{position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,.7);font-family:'JetBrains Mono',monospace;font-size:6px;letter-spacing:2px;color:var(--text);text-align:center}
+.pv-item canvas{display:block;width:100%;height:auto}
+
+/* CONTROLS */
+.ctrl-row{display:flex;flex-direction:column;gap:10px}
+.cr-label{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text);margin-bottom:3px}
+.cr-label b{color:var(--cyan)}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:2px;
+  background:rgba(160,32,240,.2);outline:none;cursor:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  background:var(--p1);border-radius:50%;cursor:none;
+  box-shadow:0 0 10px rgba(160,32,240,.7);
+}
+
+/* MODE GRID */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.mode-btn{
+  padding:10px 6px;border:1px solid var(--b1);background:transparent;
+  cursor:none;text-align:center;transition:all .22s;
+  font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:1.5px;
+  color:var(--text);line-height:1.8;
+}
+.mode-btn:hover,.mode-btn.on{
+  background:rgba(160,32,240,.12);border-color:var(--p1);color:var(--p2);
+}
+.mode-btn .mb-icon{font-size:18px;display:block;margin-bottom:4px}
+
+/* EQUATION BOX */
+.eq-box{
+  background:rgba(0,232,255,.03);border:1px solid rgba(0,232,255,.12);
+  padding:14px;font-family:'JetBrains Mono',monospace;font-size:8.5px;
+  color:var(--cyan);line-height:2;min-height:80px;letter-spacing:.3px;
+  word-break:break-all;
+}
+.eq-box .eq-title{color:var(--p2);font-size:9px;display:block;margin-bottom:6px;font-weight:500}
+
+/* GENERATE BTN */
+.gen-btn{
+  width:100%;padding:15px;
+  background:linear-gradient(135deg,rgba(130,0,200,.8),rgba(160,32,240,.9));
+  color:#fff;border:1px solid rgba(160,32,240,.5);
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:5px;
+  cursor:none;transition:all .28s;position:relative;overflow:hidden;
+  box-shadow:0 0 24px rgba(160,32,240,.2);
+}
+.gen-btn::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);
+  transform:translateX(-100%);transition:.6s;
+}
+.gen-btn:hover::after{transform:translateX(100%)}
+.gen-btn:hover{box-shadow:0 0 44px rgba(160,32,240,.5);transform:translateY(-1px)}
+.gen-btn:disabled{opacity:.4;transform:none}
+
+/* PROGRESS */
+.prog-bar{height:2px;background:rgba(160,32,240,.08);overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--p1),var(--rose),var(--cyan));transform:scaleX(0);transform-origin:left;transition:transform .4s}
+
+/* STATS ROW */
+.stats-strip{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:0;
+  border-bottom:1px solid var(--b1);
+  background:rgba(8,5,22,.9);
+}
+.stat-cell{
+  padding:14px 10px;text-align:center;
+  border-right:1px solid var(--b1);
+}
+.stat-cell:last-child{border-right:none}
+.sc-val{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;color:var(--rose);
+  text-shadow:0 0 10px rgba(255,32,96,.3);line-height:1}
+.sc-lbl{font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:2px;color:var(--text);margin-top:3px;text-transform:uppercase}
+
+/* ── RIGHT AREA ── */
+.right-area{display:flex;flex-direction:column;overflow:hidden}
+
+/* CANVAS HEADER */
+.canvas-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;border-bottom:1px solid var(--b1);
+  background:rgba(8,5,22,.9);
+  position:relative;
+}
+.canvas-header::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--p1),var(--rose),var(--cyan),var(--p1));
+  background-size:200%;animation:shimmer 3s linear infinite;
+}
+@keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}
+.ch-title{font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:4px;color:var(--p2)}
+.ch-btns{display:flex;gap:6px}
+.ch-btn{
+  padding:6px 14px;border:1px solid var(--b1);background:transparent;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:7px;
+  letter-spacing:2px;cursor:none;transition:all .2s;
+}
+.ch-btn:hover{border-color:var(--p1);color:var(--p2);background:rgba(160,32,240,.08)}
+.ch-btn.active{border-color:var(--rose);color:var(--rose);background:rgba(255,32,96,.08)}
+
+/* MAIN CANVAS */
+.canvas-wrap{
+  flex:1;position:relative;background:#000;
+  min-height:480px;overflow:hidden;
+}
+#mainCanvas{display:block;width:100%;height:100%;position:absolute;inset:0}
+/* canvas overlay label */
+.canvas-label{
+  position:absolute;top:14px;left:18px;
+  font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:3px;
+  color:rgba(160,32,240,.4);pointer-events:none;
+}
+.canvas-label b{color:rgba(160,32,240,.7)}
+
+/* VECTOR INFO OVERLAY */
+.vec-info{
+  position:absolute;bottom:14px;right:18px;
+  font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:2px;
+  color:rgba(160,32,240,.5);text-align:right;pointer-events:none;
+}
+.vec-info b{color:var(--cyan)}
+
+/* FREQUENCY SPECTRUM */
+.spectrum-wrap{
+  height:120px;border-top:1px solid var(--b1);position:relative;
+  background:rgba(4,2,12,.95);overflow:hidden;
+}
+.spectrum-label{position:absolute;top:8px;left:14px;font-family:'JetBrains Mono',monospace;font-size:7px;letter-spacing:3px;color:rgba(160,32,240,.5)}
+#specCanvas{display:block;width:100%;height:100%}
+
+/* notification */
+.notif{
+  position:fixed;top:68px;right:28px;z-index:500;
+  background:var(--panel2);color:var(--bright);
+  padding:12px 20px;border-left:2px solid var(--p1);
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;
+  transform:translateX(220%);transition:transform .32s cubic-bezier(.23,1,.32,1);
+  box-shadow:0 8px 40px rgba(0,0,0,.5);
+}
+.notif.show{transform:translateX(0)}
+
+/* ANIM — page load */
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.left-panel{animation:fadeUp .5s ease both}
+.right-area{animation:fadeUp .5s .12s ease both}
+</style>
+</head>
+<body>
+<canvas id="starCanvas"></canvas>
+<div id="CR"></div><div id="CRring"></div><div id="CRdot"></div>
+<div class="notif" id="notif"></div>
+
+<nav>
+  <div class="logo">FOURIER · 傅里叶变换</div>
+  <div class="nav-meta">
+    <div class="nm"><span class="ld"></span>LIVE</div>
+    <div class="nm">TERMS <b id="navTerms">0</b></div>
+    <div class="nm">FREQ <b id="navFreq">0</b> Hz</div>
+    <div class="nm">T <b id="navT">0.000</b></div>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- ── LEFT ── -->
+  <div class="left-panel">
+
+    <!-- Upload -->
+    <div class="section">
+      <div class="sec-label">上传图像 · UPLOAD</div>
+      <div class="upload-zone" id="upzone">
+        <input type="file" id="fileIn" accept="image/*">
+        <span class="up-glyph">∿</span>
+        <div class="up-txt">拖拽或 <span>点击上传</span><br>PNG · JPG · WebP · SVG<br><span style="color:var(--rose)">支持任意图像自动提取轮廓</span></div>
+      </div>
+      <div class="preview-grid" id="prevGrid">
+        <div class="pv-item"><canvas id="pvOrig" width="96" height="72"></canvas><div class="pv-tag">ORIGINAL</div></div>
+        <div class="pv-item"><canvas id="pvEdge" width="96" height="72"></canvas><div class="pv-tag">CONTOUR</div></div>
+        <div class="pv-item"><canvas id="pvFreq" width="96" height="72"></canvas><div class="pv-tag">SPECTRUM</div></div>
+      </div>
+    </div>
+
+    <!-- Mode -->
+    <div class="section">
+      <div class="sec-label">变换模式 · MODE</div>
+      <div class="mode-grid">
+        <div class="mode-btn on" onclick="setMode(this,'fourier_xy')"><span class="mb-icon">∿</span>XY 傅里叶<br>双轴分解</div>
+        <div class="mode-btn" onclick="setMode(this,'fourier_contour')"><span class="mb-icon">◎</span>轮廓追踪<br>旋转向量</div>
+        <div class="mode-btn" onclick="setMode(this,'polar_fourier')"><span class="mb-icon">✦</span>极坐标<br>傅里叶级数</div>
+        <div class="mode-btn" onclick="setMode(this,'spectrum_art')"><span class="mb-icon">▦</span>频谱艺术<br>幅度相位图</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="section">
+      <div class="sec-label">参数控制 · PARAMS</div>
+      <div class="ctrl-row">
+        <div>
+          <div class="cr-label">傅里叶项数 Terms <b id="vTerms">128</b></div>
+          <input type="range" id="sTerms" min="4" max="512" value="128" step="4"
+            oninput="document.getElementById('vTerms').textContent=this.value;updateTerms()">
+        </div>
+        <div>
+          <div class="cr-label">动画速度 Speed <b id="vSpeed">1.0×</b></div>
+          <input type="range" id="sSpeed" min="1" max="50" value="10"
+            oninput="document.getElementById('vSpeed').textContent=(this.value/10).toFixed(1)+'×'">
+        </div>
+        <div>
+          <div class="cr-label">轨迹长度 Trail <b id="vTrail">2000</b> pts</div>
+          <input type="range" id="sTrail" min="100" max="8000" value="2000" step="100"
+            oninput="document.getElementById('vTrail').textContent=this.value">
+        </div>
+        <div>
+          <div class="cr-label">向量显示 Vectors <b id="vVecs">全部</b></div>
+          <input type="range" id="sVecs" min="0" max="3" value="0" step="1"
+            oninput="document.getElementById('vVecs').textContent=['全部','大向量','前10','隐藏'][this.value]">
+        </div>
+        <div>
+          <div class="cr-label">画笔颜色 Color <b id="vColor">彩虹</b></div>
+          <input type="range" id="sColor" min="0" max="4" value="0" step="1"
+            oninput="document.getElementById('vColor').textContent=['彩虹','霓虹紫','玫瑰金','青白','黑金'][this.value]">
+        </div>
+        <div>
+          <div class="cr-label">背景亮度 BG <b id="vBg">极暗</b></div>
+          <input type="range" id="sBg" min="0" max="4" value="0" step="1"
+            oninput="document.getElementById('vBg').textContent=['极暗','暗','中','亮','白底'][this.value]">
+        </div>
+      </div>
+    </div>
+
+    <!-- Equation -->
+    <div class="section">
+      <div class="sec-label">数学方程 · EQUATION</div>
+      <div class="eq-box" id="eqBox">
+        <span class="eq-title">// 上传图像后显示傅里叶方程</span>
+        f(t) = Σ Aₙ · e^(i·2π·nₖ·t + φₙ)<br>
+        x(t) = Σ aₙ·cos(ωₙt) − bₙ·sin(ωₙt)<br>
+        y(t) = Σ aₙ·sin(ωₙt) + bₙ·cos(ωₙt)
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <div class="section" style="gap:8px;display:flex;flex-direction:column">
+      <button class="gen-btn" id="genBtn" onclick="startGen()">⟳ 开始变换 · TRANSFORM</button>
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+      <div style="display:flex;gap:6px">
+        <button class="ch-btn" style="flex:1" onclick="toggleAnim()">▶ 动画</button>
+        <button class="ch-btn" style="flex:1" onclick="downloadPNG()">↓ 下载</button>
+        <button class="ch-btn" style="flex:1" onclick="clearAll()">✕ 清除</button>
+      </div>
+    </div>
+
+  </div><!-- end left-panel -->
+
+  <!-- ── RIGHT ── -->
+  <div class="right-area">
+
+    <!-- stats strip -->
+    <div class="stats-strip">
+      <div class="stat-cell"><div class="sc-val" id="stTerms">0</div><div class="sc-lbl">傅里叶项</div></div>
+      <div class="stat-cell"><div class="sc-val" id="stPts">0</div><div class="sc-lbl">轮廓点</div></div>
+      <div class="stat-cell"><div class="sc-val" id="stMaxA">0</div><div class="sc-lbl">最大振幅</div></div>
+      <div class="stat-cell"><div class="sc-val" id="stProgress">0%</div><div class="sc-lbl">完成度</div></div>
+      <div class="stat-cell"><div class="sc-val" id="stFPS">60</div><div class="sc-lbl">FPS</div></div>
+    </div>
+
+    <!-- canvas header -->
+    <div class="canvas-header">
+      <div class="ch-title" id="canvasTitle">FOURIER TRANSFORM · 等待输入</div>
+      <div class="ch-btns">
+        <button class="ch-btn" id="toggleVecBtn" onclick="toggleVectors()">向量 ON</button>
+        <button class="ch-btn" id="toggleTrailBtn" onclick="toggleTrail()">轨迹 ON</button>
+        <button class="ch-btn" id="toggleCircBtn" onclick="toggleCircles()">圆圈 ON</button>
+        <button class="ch-btn" onclick="resetView()">复位视图</button>
+      </div>
+    </div>
+
+    <!-- main canvas -->
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="mainCanvas"></canvas>
+      <div class="canvas-label">MORPHEUS · <b id="modeLabel">XY FOURIER</b></div>
+      <div class="vec-info">
+        TERM <b id="viTerm">—</b> / FREQ <b id="viFreq">—</b><br>
+        AMP <b id="viAmp">—</b> / PHASE <b id="viPha">—</b>
+      </div>
+    </div>
+
+    <!-- frequency spectrum -->
+    <div class="spectrum-wrap">
+      <div class="spectrum-label">FREQUENCY SPECTRUM · 频率谱</div>
+      <canvas id="specCanvas"></canvas>
+    </div>
+
+  </div><!-- end right-area -->
+</div><!-- end page -->
+
+<script>
+// ─────────────────────────────────────────────
+// CURSOR
+// ─────────────────────────────────────────────
+const CR=document.getElementById('CR'),CRr=document.getElementById('CRring'),CRd=document.getElementById('CRdot');
+let mx=0,my=0;
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  CR.style.left=mx+'px';CR.style.top=my+'px';
+  CRd.style.left=mx+'px';CRd.style.top=my+'px';
+  setTimeout(()=>{CRr.style.left=mx+'px';CRr.style.top=my+'px'},60);
+});
+
+// ─────────────────────────────────────────────
+// STAR BACKGROUND
+// ─────────────────────────────────────────────
+const starC=document.getElementById('starCanvas');const starX=starC.getContext('2d');
+let SW,SH,stars=[];
+function rsz(){SW=starC.width=window.innerWidth;SH=starC.height=window.innerHeight;stars=Array.from({length:160},()=>({x:Math.random()*SW,y:Math.random()*SH,r:Math.random()*1.2+.2,a:Math.random(),t:Math.random()*Math.PI*2}))}
+function drawStars(){starX.clearRect(0,0,SW,SH);stars.forEach(s=>{s.t+=.006;const al=.15+.12*Math.sin(s.t);starX.beginPath();starX.arc(s.x,s.y,s.r,0,Math.PI*2);starX.fillStyle=`rgba(220,200,255,${al})`;starX.fill()});requestAnimationFrame(drawStars)}
+window.addEventListener('resize',rsz);rsz();drawStars();
+
+// ─────────────────────────────────────────────
+// MAIN CANVAS SETUP
+// ─────────────────────────────────────────────
+const mainC=document.getElementById('mainCanvas');
+const ctx=mainC.getContext('2d');
+const specC=document.getElementById('specCanvas'),spCtx=specC.getContext('2d');
+
+function resizeMain(){
+  const wrap=document.getElementById('canvasWrap');
+  mainC.width=wrap.clientWidth;mainC.height=wrap.clientHeight;
+  specC.width=document.querySelector('.spectrum-wrap').clientWidth;
+  specC.height=120;
+}
+window.addEventListener('resize',()=>{resizeMain();if(fourierData)drawSpectrum()});
+setTimeout(resizeMain,100);
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let currentMode='fourier_xy';
+let imgPixels=null,contourPts=[],fourierData=null;
+let animRunning=false,animId=null,animT=0,animDt=0;
+let showVectors=true,showTrail=true,showCircles=true;
+let trail=[];let lastFrameTime=0,fps=60,fpsAccum=0,fpsCnt=0;
+let scaleX=1,scaleY=1,offsetX=0,offsetY=0;
+
+// ─────────────────────────────────────────────
+// UPLOAD & IMAGE PROCESSING
+// ─────────────────────────────────────────────
+const upzone=document.getElementById('upzone');
+upzone.addEventListener('dragover',e=>{e.preventDefault();upzone.classList.add('drag')});
+upzone.addEventListener('dragleave',()=>upzone.classList.remove('drag'));
+upzone.addEventListener('drop',e=>{e.preventDefault();upzone.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))loadFile(f)});
+document.getElementById('fileIn').addEventListener('change',e=>{if(e.target.files[0])loadFile(e.target.files[0])});
+
+function loadFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      // draw to off-screen canvas
+      const oc=document.createElement('canvas');oc.width=320;oc.height=240;
+      const ox=oc.getContext('2d');ox.drawImage(img,0,0,320,240);
+      imgPixels=ox.getImageData(0,0,320,240);
+      // show original preview
+      const pOrig=document.getElementById('pvOrig');
+      const pox=pOrig.getContext('2d');pox.drawImage(img,0,0,96,72);
+      // extract contour
+      extractContour();
+      notify('✓ 图像加载完成！点击「开始变换」');
+    };img.src=e.target.result;
+  };reader.readAsDataURL(file);
+}
+
+// ─────────────────────────────────────────────
+// CONTOUR EXTRACTION (Sobel + march)
+// ─────────────────────────────────────────────
+function extractContour(){
+  const W=320,H=240,d=imgPixels.data;
+  // Grayscale
+  const gray=new Float32Array(W*H);
+  for(let i=0;i<W*H;i++){gray[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2]}
+  // Sobel edge map
+  const edge=new Float32Array(W*H);
+  let maxE=0;
+  for(let y=1;y<H-1;y++){for(let x=1;x<W-1;x++){
+    const gx=-gray[(y-1)*W+x-1]+gray[(y-1)*W+x+1]-2*gray[y*W+x-1]+2*gray[y*W+x+1]-gray[(y+1)*W+x-1]+gray[(y+1)*W+x+1];
+    const gy=-gray[(y-1)*W+x-1]-2*gray[(y-1)*W+x]-gray[(y-1)*W+x+1]+gray[(y+1)*W+x-1]+2*gray[(y+1)*W+x]+gray[(y+1)*W+x+1];
+    const m=Math.sqrt(gx*gx+gy*gy);edge[y*W+x]=m;if(m>maxE)maxE=m;
+  }}
+  const threshold=maxE*.18;
+  // Collect edge points
+  const edgePts=[];
+  for(let y=1;y<H-1;y++){for(let x=1;x<W-1;x++){if(edge[y*W+x]>threshold)edgePts.push({x,y,m:edge[y*W+x]})}}
+
+  // Smart sampling: sort by angle from centroid, then sample uniformly
+  const cx=edgePts.reduce((s,p)=>s+p.x,0)/edgePts.length||W/2;
+  const cy=edgePts.reduce((s,p)=>s+p.y,0)/edgePts.length||H/2;
+  edgePts.sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));
+
+  // Sample N points evenly
+  const N=Math.min(edgePts.length,2048);
+  contourPts=[];
+  const step=Math.max(1,Math.floor(edgePts.length/N));
+  for(let i=0;i<edgePts.length;i+=step){
+    const p=edgePts[i];
+    contourPts.push({x:(p.x/W-.5)*2,y:(p.y/H-.5)*2}); // normalize to [-1,1]
+  }
+
+  // Preview edge
+  const peC=document.getElementById('pvEdge'),peX=peC.getContext('2d');
+  peX.fillStyle='#000';peX.fillRect(0,0,96,72);
+  peX.fillStyle='rgba(160,32,240,.9)';
+  contourPts.forEach(p=>{
+    peX.fillRect((p.x*.5+.5)*96-1,(p.y*.5+.5)*72-1,1.5,1.5);
+  });
+
+  notify(`✓ 轮廓提取完成：${contourPts.length} 点`);
+  document.getElementById('stPts').textContent=contourPts.length;
+}
+
+// ─────────────────────────────────────────────
+// DISCRETE FOURIER TRANSFORM
+// ─────────────────────────────────────────────
+function dft(signal){
+  // signal: array of {x,y}
+  const N=signal.length;const result=[];
+  const terms=parseInt(document.getElementById('sTerms').value)||128;
+  const freqCount=Math.min(terms,Math.floor(N/2));
+  // Compute DFT for selected frequencies
+  const freqs=[];
+  for(let k=0;k<freqCount;k++)freqs.push(k);
+  // Add negative frequencies for better reconstruction
+  for(let k=1;k<freqCount;k++)freqs.push(N-k);
+
+  for(let fi=0;fi<freqs.length;fi++){
+    const k=freqs[fi];
+    let re=0,im=0;
+    for(let n=0;n<N;n++){
+      const angle=2*Math.PI*k*n/N;
+      re+=signal[n].x*Math.cos(angle)+signal[n].y*Math.sin(angle);
+      im+=-signal[n].x*Math.sin(angle)+signal[n].y*Math.cos(angle);
+    }
+    re/=N;im/=N;
+    const amp=Math.sqrt(re*re+im*im);
+    const phase=Math.atan2(im,re);
+    const freq=k<=N/2?k:k-N;
+    result.push({freq,amp,phase,re,im});
+  }
+  // Sort by amplitude descending
+  result.sort((a,b)=>b.amp-a.amp);
+  return result;
+}
+
+function dftXY(xs,ys){
+  const N=xs.length;const terms=parseInt(document.getElementById('sTerms').value)||128;
+  const tc=Math.min(terms,Math.floor(N/2));
+  const xRes=[],yRes=[];
+  for(let k=0;k<tc;k++){
+    let xre=0,xim=0,yre=0,yim=0;
+    for(let n=0;n<N;n++){const a=2*Math.PI*k*n/N;xre+=xs[n]*Math.cos(a);xim-=xs[n]*Math.sin(a);yre+=ys[n]*Math.cos(a);yim-=ys[n]*Math.sin(a)}
+    xre/=N;xim/=N;yre/=N;yim/=N;
+    xRes.push({k,amp:Math.sqrt(xre*xre+xim*xim),phase:Math.atan2(xim,xre),re:xre,im:xim});
+    yRes.push({k,amp:Math.sqrt(yre*yre+yim*yim),phase:Math.atan2(yim,yre),re:yre,im:yim});
+  }
+  xRes.sort((a,b)=>b.amp-a.amp);yRes.sort((a,b)=>b.amp-a.amp);
+  return{xRes,yRes};
+}
+
+// ─────────────────────────────────────────────
+// START GENERATION
+// ─────────────────────────────────────────────
+function startGen(){
+  if(!contourPts.length){notify('⚠ 请先上传图像！');return}
+  const btn=document.getElementById('genBtn');btn.disabled=true;btn.textContent='⌛ 计算中...';
+  const pf=document.getElementById('progFill');pf.style.transform='scaleX(.05)';
+  trail=[];animT=0;
+  if(animRunning){cancelAnimationFrame(animId);animRunning=false}
+
+  setTimeout(()=>{
+    pf.style.transform='scaleX(.4)';
+    setTimeout(()=>{
+      const t0=performance.now();
+      computeFourier();
+      const t1=performance.now();
+      pf.style.transform='scaleX(1)';
+      btn.disabled=false;btn.textContent='⟳ 重新变换 · RETRANSFORM';
+      setTimeout(()=>pf.style.transform='scaleX(0)',1200);
+      notify(`✓ 傅里叶变换完成！耗时 ${Math.round(t1-t0)}ms · 点击「动画」`);
+      drawSpectrum();
+      startAnimation();
+    },100);
+  },50);
+}
+
+function computeFourier(){
+  const N=contourPts.length;
+  const terms=parseInt(document.getElementById('sTerms').value)||128;
+
+  if(currentMode==='fourier_xy'){
+    const xs=contourPts.map(p=>p.x);
+    const ys=contourPts.map(p=>p.y);
+    fourierData={mode:'xy',...dftXY(xs,ys),N};
+    const maxA=Math.max(...fourierData.xRes.map(f=>f.amp),...fourierData.yRes.map(f=>f.amp));
+    document.getElementById('stTerms').textContent=fourierData.xRes.length*2;
+    document.getElementById('stMaxA').textContent=maxA.toFixed(3);
+    updateEquation('xy',fourierData);
+  } else if(currentMode==='fourier_contour'){
+    fourierData={mode:'contour',series:dft(contourPts),N};
+    const maxA=fourierData.series[0]?.amp||0;
+    document.getElementById('stTerms').textContent=fourierData.series.length;
+    document.getElementById('stMaxA').textContent=maxA.toFixed(3);
+    updateEquation('contour',fourierData);
+  } else if(currentMode==='polar_fourier'){
+    // Convert to polar profile
+    const N2=contourPts.length;
+    const angles=Array.from({length:N2},(_,i)=>2*Math.PI*i/N2);
+    const radii=contourPts.map(p=>Math.sqrt(p.x*p.x+p.y*p.y));
+    const rs=[],is=[];
+    const tc=Math.min(terms,Math.floor(N2/2));
+    const series=[];
+    for(let k=0;k<tc;k++){
+      let re=0,im=0;
+      for(let n=0;n<N2;n++){const a=2*Math.PI*k*n/N2;re+=radii[n]*Math.cos(a);im-=radii[n]*Math.sin(a)}
+      re/=N2;im/=N2;
+      series.push({k,amp:Math.sqrt(re*re+im*im),phase:Math.atan2(im,re),re,im});
+    }
+    series.sort((a,b)=>b.amp-a.amp);
+    fourierData={mode:'polar',series,N:N2};
+    document.getElementById('stTerms').textContent=series.length;
+    document.getElementById('stMaxA').textContent=(series[0]?.amp||0).toFixed(3);
+    updateEquation('polar',fourierData);
+  } else {
+    // Spectrum art = contour mode
+    fourierData={mode:'spectrum',...dftXY(contourPts.map(p=>p.x),contourPts.map(p=>p.y)),N};
+    document.getElementById('stTerms').textContent=fourierData.xRes.length*2;
+    updateEquation('spectrum',fourierData);
+  }
+  // Spectrum preview
+  drawSpectrumPreview(fourierData);
+}
+
+function updateEquation(mode,fd){
+  const box=document.getElementById('eqBox');
+  if(mode==='xy'||mode==='spectrum'){
+    const top3x=fd.xRes.slice(0,3),top3y=fd.yRes.slice(0,3);
+    box.innerHTML=`<span class="eq-title">傅里叶级数分解 / Fourier Series Decomposition</span>
+x(t) = ${top3x.map(f=>`${f.amp.toFixed(4)}·cos(${f.k}·2πt + ${f.phase.toFixed(3)})`).join(' + ')} + ...<br>
+y(t) = ${top3y.map(f=>`${f.amp.toFixed(4)}·cos(${f.k}·2πt + ${f.phase.toFixed(3)})`).join(' + ')} + ...<br>
+<br>N = ${fd.N} 采样点 · Terms = ${fd.xRes.length}×2`;
+  } else if(mode==='contour'){
+    const top3=fd.series.slice(0,3);
+    box.innerHTML=`<span class="eq-title">复数傅里叶级数 / Complex Fourier</span>
+f(t) = Σ cₙ · e^(i·2π·nₖ·t)<br>
+${top3.map(f=>`c_{${f.freq}} = ${f.amp.toFixed(4)}·e^(i·${f.phase.toFixed(3)})`).join('<br>')}<br>
++ ${fd.series.length-3} more terms...<br>N = ${fd.N} pts`;
+  } else if(mode==='polar'){
+    const top3=fd.series.slice(0,3);
+    box.innerHTML=`<span class="eq-title">极坐标傅里叶 / Polar Fourier</span>
+r(θ) = Σ aₖ·cos(k·θ) + bₖ·sin(k·θ)<br>
+${top3.map(f=>`a_{${f.k}} = ${f.re.toFixed(4)}, b_{${f.k}} = ${f.im.toFixed(4)}`).join('<br>')}<br>
+共 ${fd.series.length} 项谐波`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// ANIMATION
+// ─────────────────────────────────────────────
+function startAnimation(){
+  animRunning=true;animT=0;trail=[];
+  document.getElementById('canvasTitle').textContent=
+    {xy:'XY FOURIER DECOMPOSITION · XY双轴傅里叶',contour:'CONTOUR FOURIER · 轮廓追踪',polar:'POLAR FOURIER · 极坐标',spectrum:'SPECTRUM ART · 频谱艺术'}[fourierData.mode];
+  document.getElementById('modeLabel').textContent=currentMode.toUpperCase().replace('_',' ');
+  document.querySelector('.ch-btn[onclick="toggleAnim()"]').textContent='⏹ 停止';
+  if(animId)cancelAnimationFrame(animId);
+  animFrame();
+}
+
+function toggleAnim(){
+  if(!fourierData){startGen();return}
+  if(animRunning){
+    animRunning=false;
+    cancelAnimationFrame(animId);
+    document.querySelector('.ch-btn[onclick="toggleAnim()"]').textContent='▶ 动画';
+  } else {
+    animRunning=true;
+    document.querySelector('.ch-btn[onclick="toggleAnim()"]').textContent='⏹ 停止';
+    animFrame();
+  }
+}
+
+function animFrame(ts=0){
+  if(!animRunning)return;
+  // FPS
+  const dt=ts-lastFrameTime;lastFrameTime=ts;
+  fpsAccum+=dt;fpsCnt++;
+  if(fpsAccum>500){fps=Math.round(1000/(fpsAccum/fpsCnt));fpsAccum=0;fpsCnt=0;document.getElementById('stFPS').textContent=fps}
+
+  const speed=parseInt(document.getElementById('sSpeed').value)/10;
+  const N=fourierData.N;
+  animDt=2*Math.PI/(N>512?N:512)*speed;
+  animT+=animDt;
+  if(animT>2*Math.PI)animT-=2*Math.PI;
+
+  const pct=Math.round((animT/(2*Math.PI))*100);
+  document.getElementById('stProgress').textContent=pct+'%';
+  document.getElementById('navT').textContent=animT.toFixed(3);
+
+  drawFrame();
+  animId=requestAnimationFrame(animFrame);
+}
+
+function drawFrame(){
+  const W=mainC.width,H=mainC.height;
+  const CX=W/2,CY=H/2;
+
+  // Background
+  const bgMode=parseInt(document.getElementById('sBg').value);
+  const bgColors=['rgba(3,1,10,.88)','rgba(6,4,18,.82)','rgba(10,6,24,.7)','rgba(15,10,35,.55)','rgba(255,255,255,.95)'];
+  ctx.fillStyle=bgColors[bgMode];ctx.fillRect(0,0,W,H);
+
+  // Draw grid (subtle)
+  ctx.save();ctx.strokeStyle='rgba(160,32,240,.04)';ctx.lineWidth=.5;
+  const gs=40;
+  for(let x=CX%gs;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=CY%gs;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  // axes
+  ctx.strokeStyle='rgba(160,32,240,.15)';ctx.lineWidth=.8;
+  ctx.beginPath();ctx.moveTo(CX,0);ctx.lineTo(CX,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,CY);ctx.lineTo(W,CY);ctx.stroke();
+  ctx.restore();
+
+  const scale=Math.min(W,H)*.38;
+  const colorMode=parseInt(document.getElementById('sColor').value);
+  const vecsMode=parseInt(document.getElementById('sVecs').value);
+  const maxTrail=parseInt(document.getElementById('sTrail').value);
+  const t=animT;
+
+  if(fourierData.mode==='xy'){
+    drawXY(CX,CY,scale,t,colorMode,vecsMode,maxTrail);
+  } else if(fourierData.mode==='contour'){
+    drawContourFourier(CX,CY,scale,t,colorMode,vecsMode,maxTrail);
+  } else if(fourierData.mode==='polar'){
+    drawPolarFourier(CX,CY,scale,t,colorMode,vecsMode,maxTrail);
+  } else {
+    drawSpectrumArt(CX,CY,scale,t,colorMode,maxTrail);
+  }
+  drawSpectrum();
+}
+
+// ── XY MODE ──
+function drawXY(CX,CY,scale,t,cm,vm,maxT){
+  const W=mainC.width,H=mainC.height;
+  const {xRes,yRes}=fourierData;
+
+  // Compute X signal (horizontal oscilloscope)
+  let xSum=0;
+  xRes.forEach(f=>{xSum+=f.amp*Math.cos(f.k*t+f.phase)});
+  // Compute Y signal
+  let ySum=0;
+  yRes.forEach(f=>{ySum+=f.amp*Math.cos(f.k*t+f.phase)});
+
+  const px=CX+xSum*scale;
+  const py=CY+ySum*scale;
+  trail.push({x:px,y:py,t});
+  if(trail.length>maxT)trail.shift();
+
+  // Draw X oscilloscope (top strip)
+  if(showVectors){
+    let cx2=80,cy2=H*.18;
+    ctx.save();
+    xRes.slice(0,vm===2?10:vm===1?xRes.filter(f=>f.amp>.02).length:xRes.length).forEach((f,i)=>{
+      const r=f.amp*scale*.6;
+      const angle=f.k*t+f.phase;
+      const nx=cx2+r*Math.cos(angle);const ny=cy2+r*Math.sin(angle);
+      if(showCircles){ctx.beginPath();ctx.arc(cx2,cy2,r,0,Math.PI*2);ctx.strokeStyle=`rgba(160,32,240,.15)`;ctx.lineWidth=.6;ctx.stroke()}
+      if(vm!==3){ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(nx,ny);ctx.strokeStyle=vecColor(f.amp,i,xRes.length,cm);ctx.lineWidth=Math.max(.5,f.amp*3);ctx.stroke()}
+      cx2=nx;cy2=ny;
+    });
+    // Dashed line to trail
+    ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(px,cy2);ctx.strokeStyle='rgba(0,232,255,.3)';ctx.lineWidth=.8;ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+    // Update vector info
+    const top=xRes[0];if(top){document.getElementById('viTerm').textContent=top.k;document.getElementById('viFreq').textContent=top.k;document.getElementById('viAmp').textContent=top.amp.toFixed(4);document.getElementById('viPha').textContent=(top.phase*180/Math.PI).toFixed(1)+'°'}
+  }
+
+  // Draw trail
+  if(showTrail&&trail.length>1){
+    ctx.beginPath();
+    trail.forEach((p,i)=>{
+      const alpha=i/trail.length;
+      if(i===0){ctx.moveTo(p.x,p.y)}else{ctx.lineTo(p.x,p.y)}
+    });
+    const grad=ctx.createLinearGradient(trail[0].x,trail[0].y,trail[trail.length-1].x,trail[trail.length-1].y);
+    applyGrad(grad,cm,trail.length);
+    ctx.strokeStyle=grad;ctx.lineWidth=1.5;ctx.stroke();
+    // Glowing tip
+    ctx.beginPath();ctx.arc(px,py,4,0,Math.PI*2);ctx.fillStyle=tipColor(cm);
+    ctx.shadowColor=tipColor(cm);ctx.shadowBlur=20;ctx.fill();ctx.shadowBlur=0;
+  }
+  document.getElementById('navFreq').textContent=xRes[0]?.k||0;
+  document.getElementById('navTerms').textContent=xRes.length;
+}
+
+// ── CONTOUR ROTATING VECTOR MODE ──
+function drawContourFourier(CX,CY,scale,t,cm,vm,maxT){
+  const {series}=fourierData;
+  let vx=CX,vy=CY;
+  const showLimit=vm===3?0:vm===2?10:vm===1?series.filter(f=>f.amp>.01).length:series.length;
+
+  // Draw rotating vectors
+  series.slice(0,showLimit).forEach((f,i)=>{
+    const r=f.amp*scale;
+    const angle=f.freq*t+f.phase;
+    const nx=vx+r*Math.cos(angle);
+    const ny=vy+r*Math.sin(angle);
+    if(showCircles&&r>1){
+      ctx.beginPath();ctx.arc(vx,vy,r,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(160,32,240,${Math.max(.05,.15-i*.003)})`;ctx.lineWidth=.5;ctx.stroke();
+    }
+    if(vm!==3&&r>.5){
+      ctx.beginPath();ctx.moveTo(vx,vy);ctx.lineTo(nx,ny);
+      const col=vecColor(f.amp,i,series.length,cm);
+      ctx.strokeStyle=col;ctx.lineWidth=Math.max(.5,Math.min(2,f.amp*scale*.08));ctx.stroke();
+      // Vector head dot
+      if(i<5){ctx.beginPath();ctx.arc(nx,ny,2,0,Math.PI*2);ctx.fillStyle=col;ctx.fill()}
+    }
+    vx=nx;vy=ny;
+  });
+
+  // Tip = current draw point
+  trail.push({x:vx,y:vy,t});if(trail.length>maxT)trail.shift();
+
+  // Draw trail (the actual Fourier-reconstructed contour)
+  if(showTrail&&trail.length>1){
+    for(let i=1;i<trail.length;i++){
+      const alpha=i/trail.length;
+      ctx.beginPath();ctx.moveTo(trail[i-1].x,trail[i-1].y);ctx.lineTo(trail[i].x,trail[i].y);
+      ctx.strokeStyle=trailColor(alpha,cm);ctx.lineWidth=1.5+alpha*.5;ctx.stroke();
+    }
+    // Glowing dot at tip
+    ctx.beginPath();ctx.arc(vx,vy,5,0,Math.PI*2);
+    ctx.fillStyle=tipColor(cm);ctx.shadowColor=tipColor(cm);ctx.shadowBlur=24;ctx.fill();ctx.shadowBlur=0;
+  }
+  // Update info
+  const top=series[0];if(top){document.getElementById('viTerm').textContent=top.freq;document.getElementById('viFreq').textContent=Math.abs(top.freq);document.getElementById('viAmp').textContent=top.amp.toFixed(4);document.getElementById('viPha').textContent=(top.phase*180/Math.PI).toFixed(1)+'°'}
+  document.getElementById('navTerms').textContent=series.length;
+}
+
+// ── POLAR FOURIER MODE ──
+function drawPolarFourier(CX,CY,scale,t,cm,vm,maxT){
+  const {series}=fourierData;
+  // r(θ) reconstruction
+  const steps=800;
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++){
+    const theta=2*Math.PI*i/steps+t;
+    let r=0;series.forEach(f=>{r+=f.amp*Math.cos(f.k*theta+f.phase)});
+    r=Math.abs(r)*scale*.6+scale*.08;
+    const px=CX+r*Math.cos(theta);const py=CY+r*Math.sin(theta);
+    if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  const grad=ctx.createLinearGradient(CX-scale,CY,CX+scale,CY);
+  applyGrad(grad,cm,100);
+  ctx.strokeStyle=grad;ctx.lineWidth=1.8;
+  if(cm===0||cm===1){ctx.shadowColor=tipColor(cm);ctx.shadowBlur=10}
+  ctx.stroke();ctx.shadowBlur=0;
+  // Center rotating vector
+  const r0=series[0].amp*scale*.6;const a0=series[0].k*t+series[0].phase;
+  ctx.beginPath();ctx.moveTo(CX,CY);ctx.lineTo(CX+r0*Math.cos(a0),CY+r0*Math.sin(a0));
+  ctx.strokeStyle=tipColor(cm);ctx.lineWidth=2;ctx.stroke();
+}
+
+// ── SPECTRUM ART MODE ──
+function drawSpectrumArt(CX,CY,scale,t,cm,maxT){
+  drawContourFourier(CX,CY,scale,t,cm,0,maxT);
+  // Additionally draw X/Y oscilloscopes as side decoration
+  if(!fourierData.xRes)return;
+  const {xRes}=fourierData;
+  // Horizontal scope at top
+  ctx.save();ctx.globalAlpha=.35;
+  ctx.beginPath();
+  for(let i=0;i<=400;i++){const tt=2*Math.PI*i/400;let y=0;xRes.slice(0,20).forEach(f=>{y+=f.amp*Math.cos(f.k*tt+f.phase)});ctx.lineTo(i*(mainC.width/400),40+y*80)}
+  ctx.strokeStyle=trailColor(.7,cm);ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+// ── COLOR UTILITIES ──
+function vecColor(amp,i,total,cm){
+  const hue=(i/total)*300+120;
+  const sat=60+amp*40;const lit=50+amp*30;
+  if(cm===0)return `hsla(${hue},${sat}%,${lit}%,.85)`;
+  if(cm===1)return `rgba(160,32,240,.8)`;
+  if(cm===2)return `rgba(255,32,96,.8)`;
+  if(cm===3)return `rgba(0,232,255,.8)`;
+  return `rgba(255,208,32,.8)`;
+}
+function trailColor(alpha,cm){
+  if(cm===0){const h=alpha*300+60;return `hsla(${h},100%,65%,${.4+alpha*.5})`}
+  if(cm===1)return `rgba(160,32,240,${.3+alpha*.6})`;
+  if(cm===2)return `rgba(255,32,96,${.3+alpha*.6})`;
+  if(cm===3)return `rgba(0,232,255,${.3+alpha*.6})`;
+  return `rgba(255,208,32,${.3+alpha*.6})`;
+}
+function tipColor(cm){
+  if(cm===0)return '#fff';if(cm===1)return '#d060ff';if(cm===2)return '#ff6090';if(cm===3)return '#00e8ff';return '#ffd020';
+}
+function applyGrad(g,cm,len){
+  if(cm===0){g.addColorStop(0,'hsla(60,100%,65%,.3)');g.addColorStop(.4,'hsla(200,100%,65%,.8)');g.addColorStop(.7,'hsla(280,100%,65%,.8)');g.addColorStop(1,'hsla(360,100%,65%,1)')}
+  else if(cm===1){g.addColorStop(0,'rgba(160,32,240,.3)');g.addColorStop(1,'rgba(200,80,255,1)')}
+  else if(cm===2){g.addColorStop(0,'rgba(255,32,96,.3)');g.addColorStop(1,'rgba(255,100,150,1)')}
+  else if(cm===3){g.addColorStop(0,'rgba(0,232,255,.3)');g.addColorStop(1,'rgba(100,255,255,1)')}
+  else{g.addColorStop(0,'rgba(255,208,32,.3)');g.addColorStop(1,'rgba(255,240,120,1)')}
+}
+
+// ─────────────────────────────────────────────
+// SPECTRUM VISUALIZATION
+// ─────────────────────────────────────────────
+function drawSpectrum(){
+  if(!fourierData)return;
+  const W=specC.width,H=specC.height;
+  spCtx.clearRect(0,0,W,H);
+  spCtx.fillStyle='rgba(4,2,12,.95)';spCtx.fillRect(0,0,W,H);
+  const series=fourierData.xRes||fourierData.series||[];
+  if(!series.length)return;
+  const maxA=series[0].amp||1;
+  const barW=Math.max(1,(W-20)/(Math.min(series.length,256)));
+  series.slice(0,256).forEach((f,i)=>{
+    const h=((f.amp/maxA)*(H-20));const x=10+i*barW;const y=H-h-4;
+    const cm=parseInt(document.getElementById('sColor').value);
+    const hue=240-(f.amp/maxA)*200;
+    spCtx.fillStyle=cm===0?`hsla(${hue},100%,65%,.85)`:tipColor(cm).replace('#','');
+    if(cm===0)spCtx.fillStyle=`hsla(${hue},100%,65%,.85)`;
+    spCtx.fillRect(x,y,Math.max(1,barW-.5),h);
+    // Highlight dominant freq
+    if(i===0){spCtx.fillStyle='rgba(255,255,255,.8)';spCtx.fillRect(x,y-2,barW,2)}
+  });
+  // Current time marker
+  const t=animT;const tPct=t/(2*Math.PI);
+  spCtx.fillStyle='rgba(255,255,255,.4)';spCtx.fillRect(10+tPct*(W-20),0,1.5,H);
+}
+
+function drawSpectrumPreview(fd){
+  const pC=document.getElementById('pvFreq'),pX=pC.getContext('2d');
+  pX.fillStyle='#000';pX.fillRect(0,0,96,72);
+  const series=fd.xRes||fd.series||[];const max=series[0]?.amp||1;
+  const bw=Math.max(1,90/Math.min(series.length,60));
+  series.slice(0,60).forEach((f,i)=>{
+    const h=((f.amp/max)*60);const hue=240-(f.amp/max)*200;
+    pX.fillStyle=`hsla(${hue},100%,65%,.9)`;pX.fillRect(3+i*bw,72-h-4,Math.max(1,bw-.5),h);
+  });
+}
+
+// ─────────────────────────────────────────────
+// TOGGLE CONTROLS
+// ─────────────────────────────────────────────
+function toggleVectors(){showVectors=!showVectors;const b=document.getElementById('toggleVecBtn');b.textContent='向量 '+(showVectors?'ON':'OFF');b.classList.toggle('active',!showVectors)}
+function toggleTrail(){showTrail=!showTrail;const b=document.getElementById('toggleTrailBtn');b.textContent='轨迹 '+(showTrail?'ON':'OFF');b.classList.toggle('active',!showTrail)}
+function toggleCircles(){showCircles=!showCircles;const b=document.getElementById('toggleCircBtn');b.textContent='圆圈 '+(showCircles?'ON':'OFF');b.classList.toggle('active',!showCircles)}
+function updateTerms(){if(fourierData&&!animRunning)computeFourier()}
+function setMode(el,m){document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('on'));el.classList.add('on');currentMode=m;trail=[];if(imgPixels){computeFourier&&fourierData&&(trail=[])}}
+
+function resetView(){trail=[];animT=0}
+function clearAll(){if(animRunning){cancelAnimationFrame(animId);animRunning=false;document.querySelector('.ch-btn[onclick="toggleAnim()"]').textContent='▶ 动画'}trail=[];fourierData=null;imgPixels=null;contourPts=[];ctx.clearRect(0,0,mainC.width,mainC.height);drawInitCanvas();notify('✓ 已清除')}
+
+function downloadPNG(){
+  const a=document.createElement('a');a.download='fourier-'+currentMode+'.png';a.href=mainC.toDataURL('image/png');a.click();notify('✓ 下载完成！')}
+
+// ─────────────────────────────────────────────
+// INITIAL CANVAS
+// ─────────────────────────────────────────────
+function drawInitCanvas(){
+  setTimeout(()=>{
+    const W=mainC.width,H=mainC.height;if(!W||!H)return;
+    ctx.fillStyle='#03010a';ctx.fillRect(0,0,W,H);
+    // Grid
+    ctx.strokeStyle='rgba(160,32,240,.06)';ctx.lineWidth=.5;
+    for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    // Axes
+    ctx.strokeStyle='rgba(160,32,240,.2)';ctx.lineWidth=.8;
+    ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+    // Demo sine wave
+    ctx.beginPath();for(let x=0;x<=W;x+=2){const y=H/2+Math.sin(x/W*4*Math.PI)*80*Math.sin(x/W*Math.PI);x===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}
+    const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,'rgba(160,32,240,.4)');g.addColorStop(.5,'rgba(255,32,96,.6)');g.addColorStop(1,'rgba(0,232,255,.4)');ctx.strokeStyle=g;ctx.lineWidth=1.5;ctx.stroke();
+    // Prompt text
+    ctx.font='bold 15px Orbitron,sans-serif';ctx.fillStyle='rgba(160,32,240,.35)';ctx.textAlign='center';
+    ctx.fillText('上传图像 · 开始傅里叶变换',W/2,H/2-20);
+    ctx.font='10px JetBrains Mono,monospace';ctx.fillStyle='rgba(160,32,240,.2)';
+    ctx.fillText('Upload an image to begin Fourier Transform',W/2,H/2+10);
+    ctx.fillText('f(t) = Σ Aₙ · e^(i·2π·nₖ·t + φₙ)',W/2,H/2+34);
+    ctx.textAlign='left';
+  },200);
+}
+
+// Notify
+function notify(msg){const n=document.getElementById('notif');n.textContent=msg;n.classList.add('show');setTimeout(()=>n.classList.remove('show'),3500)}
+
+// Init
+setTimeout(drawInitCanvas,300);
+</script>
+</body>
+</html>
